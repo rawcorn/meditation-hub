@@ -1,0 +1,142 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg-main: #080B15;
+    --surface-1: #111827;
+    --surface-2: #151B29;
+    --surface-glass: rgba(17, 24, 39, 0.75);
+    --border-subtle: #242c40;
+    --border-focus: #3e4a6b;
+    --text-primary: #F3F3FA;
+    --text-secondary: #A8B1C8;
+    --text-muted: #64708D;
+    --accent-lavender: #C7B9FF;
+    --accent-blue: #B9D1FF;
+    --accent-teal: #A8DCC9;
+    --glow-lavender: rgba(199, 185, 255, 0.15);
+    --glow-blue: rgba(185, 209, 255, 0.12);
+  }
+
+  * {
+    border-color: var(--border-subtle);
+  }
+
+  body {
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+}
+
+/* Custom Atmospheric Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #242c40;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3e4a6b;
+}
+
+/* Breathing Halo Keyframes */
+@keyframes halo-expand-1 {
+  0%, 100% {
+    transform: scale(0.92);
+    opacity: 0.35;
+  }
+  50% {
+    transform: scale(1.18);
+    opacity: 0.75;
+  }
+}
+
+@keyframes halo-expand-2 {
+  0%, 100% {
+    transform: scale(0.85);
+    opacity: 0.25;
+  }
+  50% {
+    transform: scale(1.35);
+    opacity: 0.55;
+  }
+}
+
+@keyframes halo-expand-3 {
+  0%, 100% {
+    transform: scale(0.78);
+    opacity: 0.15;
+  }
+  50% {
+    transform: scale(1.52);
+    opacity: 0.35;
+  }
+}
+
+@keyframes gentle-pulse {
+  0%, 100% {
+    opacity: 0.8;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes orbital-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-halo-1 {
+  animation: halo-expand-1 var(--breath-duration, 10s) ease-in-out infinite;
+}
+
+.animate-halo-2 {
+  animation: halo-expand-2 var(--breath-duration, 10s) ease-in-out infinite;
+}
+
+.animate-halo-3 {
+  animation: halo-expand-3 var(--breath-duration, 10s) ease-in-out infinite;
+}
+
+.animate-pulse-gentle {
+  animation: gentle-pulse 4s ease-in-out infinite;
+}
+
+.animate-spin-slow {
+  animation: orbital-spin 48s linear infinite;
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .animate-halo-1,
+  .animate-halo-2,
+  .animate-halo-3,
+  .animate-pulse-gentle,
+  .animate-spin-slow {
+    animation: none !important;
+    transform: none !important;
+  }
+}
+
+/* Background Atmospheric Glow */
+.bg-ambient-radial {
+  background: radial-gradient(circle at 50% 20%, rgba(199, 185, 255, 0.05) 0%, rgba(185, 209, 255, 0.02) 45%, transparent 70%);
+}
+
+.bg-sanctuary-radial {
+  background: radial-gradient(circle at 50% 45%, rgba(199, 185, 255, 0.09) 0%, rgba(21, 27, 41, 0.8) 50%, #080B15 100%);
+}
