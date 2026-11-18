@@ -6,85 +6,97 @@ import { IntentionCategory, SessionType } from '@/types';
 import {
   Calendar,
   Check,
+  Clock,
   Globe,
-  Sparkles,
   Upload,
   X,
 } from 'lucide-react';
 import Image from 'next/image';
+import { useIsMounted } from '@/lib/useIsMounted';
 
 const CATEGORIES: IntentionCategory[] = [
-  'Physical Wellbeing',
-  'Mental & Emotional Wellbeing',
+  'Physical',
+  'Mental & Emotional',
   'Love & Relationships',
-  'Financial Wellbeing',
-  'Global Peace',
+  'Financial',
+  'World',
   'Other',
 ];
 
-// Curated peaceful symbolic art presets
-const PRESET_IMAGES = [
-  { label: 'Warm Horizon', url: 'https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&w=600&q=80' },
-  { label: 'Still Waters', url: 'https://images.unsplash.com/photo-1470240731273-7821a6eeb6bd?auto=format&fit=crop&w=600&q=80' },
-  { label: 'Ethereal Forest', url: 'https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=600&q=80' },
-  { label: 'Luminous Space', url: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=600&q=80' },
-];
-
 export function CreateIntentionModal() {
-  const { isCreateModalOpen, setIsCreateModalOpen, createIntention, setSelectedDetailIntention } = useApp();
+  const {
+    isCreateModalOpen,
+    setIsCreateModalOpen,
+    createIntention,
+    setSelectedDetailIntention,
+    t,
+    tCategory,
+    language,
+  } = useApp();
 
   const [recipient, setRecipient] = useState('');
   const [title, setTitle] = useState('');
-  const [category, setCategory] = useState<IntentionCategory>('Physical Wellbeing');
+  const [category, setCategory] = useState<IntentionCategory>('Physical');
   const [description, setDescription] = useState('');
   const [visualizationPrompt, setVisualizationPrompt] = useState('');
 
-  // Image handling: Upload photo or Preset
-  const [imageMode, setImageMode] = useState<'preset' | 'upload'>('preset');
-  const [selectedPresetImage, setSelectedPresetImage] = useState(PRESET_IMAGES[0].url);
+  // Image handling: Upload photo
   const [uploadedPhotoUrl, setUploadedPhotoUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Session type
-  const [sessionType, setSessionType] = useState<SessionType>('open');
+  // All intentions are scheduled encounters
+  const sessionType: SessionType = 'scheduled';
+
+  const isMounted = useIsMounted();
 
   // Interactive Calendar Selection for Scheduled Session
-  const [localTimezone, setLocalTimezone] = useState('UTC');
-  const [availableDays, setAvailableDays] = useState<
-    { dateStr: string; dayName: string; dayNum: number; monthName: string; isToday: boolean }[]
-  >([]);
-  const [selectedDayStr, setSelectedDayStr] = useState<string>('');
-  const [selectedTimeStr, setSelectedTimeStr] = useState<string>('18:00');
-
-  // Defer date calculation to client mount to avoid static prerender mismatch
-  React.useEffect(() => {
+  const localTimezone = useMemo(() => {
+    if (!isMounted) return 'UTC';
     try {
-      setLocalTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC');
+      return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
     } catch {
-      // fallback
+      return 'UTC';
     }
+  }, [isMounted]);
 
+  const availableDays = useMemo(() => {
+    if (!isMounted) return [];
     const days: { dateStr: string; dayName: string; dayNum: number; monthName: string; isToday: boolean }[] = [];
     const now = new Date();
+    const localeStr = language === 'es' ? 'es-ES' : 'en-US';
     for (let i = 0; i < 14; i++) {
       const d = new Date(now);
       d.setDate(now.getDate() + i);
       const dateStr = d.toISOString().split('T')[0];
       days.push({
         dateStr,
-        dayName: d.toLocaleDateString([], { weekday: 'short' }),
+        dayName: d.toLocaleDateString(localeStr, { weekday: 'short' }),
         dayNum: d.getDate(),
-        monthName: d.toLocaleDateString([], { month: 'short' }),
+        monthName: d.toLocaleDateString(localeStr, { month: 'short' }),
         isToday: i === 0,
       });
     }
-    setAvailableDays(days);
-    if (days.length > 1) {
-      setSelectedDayStr(days[1].dateStr);
-    } else if (days.length > 0) {
-      setSelectedDayStr(days[0].dateStr);
-    }
-  }, []);
+    return days;
+  }, [isMounted, language]);
+
+  const [customSelectedDay, setCustomSelectedDay] = useState<string>('');
+  const selectedDayStr = customSelectedDay || (availableDays[1]?.dateStr || availableDays[0]?.dateStr || '');
+  const [selectedTimeStr, setSelectedTimeStr] = useState<string>('18:00');
+  const [isCustomTimeActive, setIsCustomTimeActive] = useState(false);
+
+  // Parse current hour and minute for the custom time picker
+  const currentHour = selectedTimeStr.includes(':') ? selectedTimeStr.split(':')[0] : '18';
+  const currentMinute = selectedTimeStr.includes(':') ? selectedTimeStr.split(':')[1] : '00';
+
+  const setCustomHour = (newHour: string) => {
+    setSelectedTimeStr(`${newHour.padStart(2, '0')}:${currentMinute}`);
+    setIsCustomTimeActive(true);
+  };
+
+  const setCustomMinute = (newMin: string) => {
+    setSelectedTimeStr(`${currentHour}:${newMin.padStart(2, '0')}`);
+    setIsCustomTimeActive(true);
+  };
 
   const [consentConfirmed, setConsentConfirmed] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -105,14 +117,12 @@ export function CreateIntentionModal() {
     reader.onload = (event) => {
       const result = event.target?.result as string;
       setUploadedPhotoUrl(result);
-      setImageMode('upload');
     };
     reader.readAsDataURL(file);
   };
 
   const removeUploadedPhoto = () => {
     setUploadedPhotoUrl(null);
-    setImageMode('preset');
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -137,7 +147,7 @@ export function CreateIntentionModal() {
     e.preventDefault();
     if (!validate()) return;
 
-    const imgToUse = imageMode === 'upload' && uploadedPhotoUrl ? uploadedPhotoUrl : selectedPresetImage;
+    const imgToUse = uploadedPhotoUrl || undefined;
 
     let scheduledAtIso: string | undefined = undefined;
     if (sessionType === 'scheduled') {
@@ -191,15 +201,11 @@ export function CreateIntentionModal() {
 
           {/* Modal Header - Always Visible at the top */}
           <div className="mb-6 pt-1">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#151B29] border border-[#242c40] text-xs text-[#C7B9FF] mb-2">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Open Space for Someone</span>
-            </div>
             <h2 id="modal-headline" className="text-xl sm:text-2xl font-light tracking-tight text-[#F3F3FA]">
-              Create an Intention
+              {t('create.modalTitle')}
             </h2>
             <p className="mt-1 text-xs sm:text-sm text-[#A8B1C8]">
-              Invite the community to hold space and meditate alongside you or someone you care about.
+              {t('create.modalSubtitle')}
             </p>
           </div>
 
@@ -208,13 +214,13 @@ export function CreateIntentionModal() {
             {/* Recipient */}
             <div>
               <label className="block text-xs font-medium text-[#A8B1C8] mb-1.5">
-                Recipient Name or Display Title <span className="text-[#C7B9FF]">*</span>
+                {t('create.recipientLabel')} <span className="text-[#C7B9FF]">*</span>
               </label>
               <input
                 type="text"
                 value={recipient}
                 onChange={(e) => setRecipient(e.target.value)}
-                placeholder="e.g., Sarah (Sister), Myself, The Pediatric Ward"
+                placeholder={t('create.recipientPlaceholder')}
                 className="w-full px-3.5 py-2.5 rounded-xl bg-[#151B29] border border-[#242c40] focus:border-[#C7B9FF]/60 text-xs sm:text-sm text-[#F3F3FA] placeholder-[#64708D] focus:outline-none transition-colors"
               />
               {errors.recipient && <p className="text-xs text-[#FFB9D2] mt-1">{errors.recipient}</p>}
@@ -223,13 +229,13 @@ export function CreateIntentionModal() {
             {/* Title */}
             <div>
               <label className="block text-xs font-medium text-[#A8B1C8] mb-1.5">
-                Intention Title <span className="text-[#C7B9FF]">*</span>
+                {t('create.titleLabel')} <span className="text-[#C7B9FF]">*</span>
               </label>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g., Gentle Healing & Restful Slumber"
+                placeholder={t('create.titlePlaceholder')}
                 className="w-full px-3.5 py-2.5 rounded-xl bg-[#151B29] border border-[#242c40] focus:border-[#C7B9FF]/60 text-xs sm:text-sm text-[#F3F3FA] placeholder-[#64708D] focus:outline-none transition-colors"
               />
               {errors.title && <p className="text-xs text-[#FFB9D2] mt-1">{errors.title}</p>}
@@ -238,7 +244,7 @@ export function CreateIntentionModal() {
             {/* Category */}
             <div>
               <label className="block text-xs font-medium text-[#A8B1C8] mb-1.5">
-                Category
+                {t('create.categoryLabel')}
               </label>
               <select
                 value={category}
@@ -247,7 +253,7 @@ export function CreateIntentionModal() {
               >
                 {CATEGORIES.map((cat) => (
                   <option key={cat} value={cat} className="bg-[#151B29] text-[#F3F3FA]">
-                    {cat}
+                    {tCategory(cat)}
                   </option>
                 ))}
               </select>
@@ -256,13 +262,13 @@ export function CreateIntentionModal() {
             {/* Description */}
             <div>
               <label className="block text-xs font-medium text-[#A8B1C8] mb-1.5">
-                Description or Situation <span className="text-[#C7B9FF]">*</span>
+                {t('create.descriptionLabel')} <span className="text-[#C7B9FF]">*</span>
               </label>
               <textarea
                 rows={3}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Share the context with compassion. We focus on peaceful presence and wellbeing support."
+                placeholder={t('create.descriptionPlaceholder')}
                 className="w-full px-3.5 py-2.5 rounded-xl bg-[#151B29] border border-[#242c40] focus:border-[#C7B9FF]/60 text-xs sm:text-sm text-[#F3F3FA] placeholder-[#64708D] focus:outline-none transition-colors resize-none"
               />
               {errors.description && <p className="text-xs text-[#FFB9D2] mt-1">{errors.description}</p>}
@@ -271,25 +277,25 @@ export function CreateIntentionModal() {
             {/* Visualization Prompt */}
             <div>
               <label className="block text-xs font-medium text-[#A8B1C8] mb-1.5">
-                Visualization Prompt (Optional)
+                {t('create.visualizationLabel')}
               </label>
               <textarea
                 rows={2}
                 value={visualizationPrompt}
                 onChange={(e) => setVisualizationPrompt(e.target.value)}
-                placeholder="e.g., Picture gentle warm sunlight surrounding their shoulders, easing tension with every breath."
+                placeholder={t('create.visualizationPlaceholder')}
                 className="w-full px-3.5 py-2.5 rounded-xl bg-[#151B29] border border-[#242c40] focus:border-[#C7B9FF]/60 text-xs sm:text-sm text-[#F3F3FA] placeholder-[#64708D] focus:outline-none transition-colors resize-none"
               />
             </div>
 
-            {/* Imagery: Upload Photo or Choose Preset (URL option removed) */}
+            {/* Imagery: Upload Photo (Optional) */}
             <div>
               <label className="block text-xs font-medium text-[#A8B1C8] mb-2">
-                Portrait or Symbolic Art (Optional)
+                {t('create.photoLabel')}
               </label>
 
               {/* Photo Upload Option */}
-              <div className="mb-3">
+              <div>
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -302,18 +308,22 @@ export function CreateIntentionModal() {
                 {uploadedPhotoUrl ? (
                   <div className="flex items-center gap-4 p-3 rounded-2xl bg-[#151B29] border border-[#C7B9FF]/50 shadow-sm">
                     <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-[#C7B9FF]/40 shrink-0">
-                      <Image src={uploadedPhotoUrl} alt="Uploaded portrait" fill className="object-cover" />
+                      <Image src={uploadedPhotoUrl} alt="Uploaded Photo" fill className="object-cover" unoptimized />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <span className="text-xs font-medium text-[#F3F3FA] block">Photo added</span>
-                      <span className="text-[11px] text-[#A8B1C8]">Your personal photo is ready for this intention.</span>
+                      <span className="text-xs font-medium text-[#F3F3FA] block">
+                        {language === 'es' ? 'Foto añadida' : 'Photo added'}
+                      </span>
+                      <span className="text-[11px] text-[#A8B1C8]">
+                        {language === 'es' ? 'Tu foto personal está lista para esta intención.' : 'Your personal photo is ready for this intention.'}
+                      </span>
                     </div>
                     <button
                       type="button"
                       onClick={removeUploadedPhoto}
                       className="px-3 py-1.5 rounded-full text-xs text-[#FFB9D2] hover:bg-[#FFB9D2]/10 transition-colors cursor-pointer"
                     >
-                      Remove
+                      {t('create.removePhoto')}
                     </button>
                   </div>
                 ) : (
@@ -322,156 +332,166 @@ export function CreateIntentionModal() {
                     className="flex items-center justify-center gap-2 w-full p-3.5 rounded-2xl bg-[#151B29] hover:bg-[#1b233a] border border-dashed border-[#3e4a6b] hover:border-[#C7B9FF]/60 transition-all cursor-pointer text-xs text-[#C7B9FF] group"
                   >
                     <Upload className="w-4 h-4 text-[#C7B9FF] group-hover:scale-110 transition-transform" />
-                    <span>Upload your photo</span>
+                    <span>{t('create.uploadPhoto')}</span>
                   </label>
                 )}
               </div>
-
-              {/* Presets (Only shown or highlighted if not uploading a custom photo) */}
-              <div className="space-y-1.5">
-                <span className="text-[11px] text-[#64708D]">Or choose a peaceful symbolic artwork:</span>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {PRESET_IMAGES.map((preset) => (
-                    <button
-                      type="button"
-                      key={preset.url}
-                      onClick={() => {
-                        setSelectedPresetImage(preset.url);
-                        setImageMode('preset');
-                      }}
-                      className={`relative h-16 rounded-xl overflow-hidden border transition-all cursor-pointer ${
-                        imageMode === 'preset' && selectedPresetImage === preset.url
-                          ? 'border-[#C7B9FF] ring-2 ring-[#C7B9FF]/30'
-                          : 'border-[#242c40] opacity-60 hover:opacity-100'
-                      }`}
-                    >
-                      <Image src={preset.url} alt={preset.label} fill className="object-cover" />
-                      <span className="absolute inset-0 bg-[#080B15]/40 flex items-center justify-center text-[10px] text-[#F3F3FA] font-medium px-1 text-center">
-                        {preset.label}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
             </div>
 
-            {/* Session Type */}
-            <div>
-              <label className="block text-xs font-medium text-[#A8B1C8] mb-2">
-                Session Type
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setSessionType('open')}
-                  className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
-                    sessionType === 'open'
-                      ? 'bg-[#1b233a] border-[#C7B9FF]/40 text-[#F3F3FA]'
-                      : 'bg-[#151B29] border-[#242c40] text-[#A8B1C8]'
-                  }`}
-                >
-                  <div className="text-xs font-medium text-[#C7B9FF]">Open Intention</div>
-                  <div className="text-[11px] text-[#64708D] mt-0.5">
-                    Members sit anytime at their own pace.
+            {/* Group Meditation Encounter Schedule (Every intention proposes a synchronous time) */}
+            <div className="p-4 rounded-2xl bg-[#151B29]/90 border border-[#242c40] space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#242c40]/80 pb-3">
+                <div>
+                  <div className="flex items-center gap-2 text-xs font-medium text-[#C7B9FF]">
+                    <Calendar className="w-4 h-4 text-[#C7B9FF]" />
+                    <span>{language === 'es' ? 'Horario de la sesión grupal' : 'Group Session Time'}</span>
                   </div>
-                </button>
+                  <p className="text-[11px] text-[#64708D] mt-0.5">
+                    {language === 'es'
+                      ? 'Elige un día y hora para meditar en grupo. Los miembros podrán sumarse en cualquier momento.'
+                      : 'Choose a Day & Time for a group meditation. People can always join and support your intention anytime.'}
+                  </p>
+                </div>
 
-                <button
-                  type="button"
-                  onClick={() => setSessionType('scheduled')}
-                  className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
-                    sessionType === 'scheduled'
-                      ? 'bg-[#1b233a] border-[#C7B9FF]/40 text-[#F3F3FA]'
-                      : 'bg-[#151B29] border-[#242c40] text-[#A8B1C8]'
-                  }`}
-                >
-                  <div className="text-xs font-medium text-[#B9D1FF]">Scheduled Session</div>
-                  <div className="text-[11px] text-[#64708D] mt-0.5">
-                    Synchronous collective encounter at a specific time.
-                  </div>
-                </button>
+                <div className="flex items-center gap-1.5 text-[11px] text-[#B9D1FF] bg-[#111827] px-2.5 py-1 rounded-full border border-[#242c40] shrink-0 self-start sm:self-auto">
+                  <Globe className="w-3 h-3 text-[#B9D1FF]" />
+                  <span>
+                    {language === 'es' ? `Tu zona horaria: ${localTimezone}` : `Your Time Zone: ${localTimezone}`}
+                  </span>
+                </div>
               </div>
 
-              {/* Enhanced Calendar Squares & Time Picker for Scheduled Session */}
-              {sessionType === 'scheduled' && (
-                <div className="mt-4 p-4 rounded-2xl bg-[#151B29]/90 border border-[#242c40] space-y-4 animate-in fade-in">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#242c40]/80 pb-3">
-                    <div className="flex items-center gap-2 text-xs font-medium text-[#C7B9FF]">
-                      <Calendar className="w-4 h-4 text-[#C7B9FF]" />
-                      <span>Select Encounter Day & Time</span>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 text-[11px] text-[#B9D1FF] bg-[#111827] px-2.5 py-1 rounded-full border border-[#242c40]">
-                      <Globe className="w-3 h-3 text-[#B9D1FF]" />
-                      <span>Local zone: {localTimezone}</span>
-                    </div>
-                  </div>
-
-                  {/* Calendar Day Squares Grid (Horizontally scrollable with beautiful cards) */}
-                  <div>
-                    <span className="text-[11px] text-[#A8B1C8] block mb-2 font-medium">1. Choose Date</span>
-                    <div className="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar">
-                      {availableDays.map((dayItem) => {
-                        const isSelected = selectedDayStr === dayItem.dateStr;
-                        return (
-                          <button
-                            type="button"
-                            key={dayItem.dateStr}
-                            onClick={() => setSelectedDayStr(dayItem.dateStr)}
-                            className={`flex flex-col items-center justify-center min-w-[62px] h-[72px] rounded-xl border transition-all cursor-pointer ${
-                              isSelected
-                                ? 'bg-gradient-to-b from-[#1b233a] to-[#252f4c] border-[#C7B9FF] shadow-[0_0_12px_rgba(199,185,255,0.25)] text-[#F3F3FA]'
-                                : 'bg-[#111827] border-[#242c40] text-[#A8B1C8] hover:border-[#3e4a6b] hover:text-[#F3F3FA]'
-                            }`}
-                          >
-                            <span className="text-[10px] uppercase font-medium tracking-wider text-[#64708D]">
-                              {dayItem.isToday ? 'Today' : dayItem.dayName}
-                            </span>
-                            <span className="text-base font-semibold my-0.5">{dayItem.dayNum}</span>
-                            <span className="text-[10px] text-[#C7B9FF]/90 font-light">{dayItem.monthName}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Time Selector */}
-                  <div>
-                    <span className="text-[11px] text-[#A8B1C8] block mb-2 font-medium">2. Choose Local Time</span>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
-                      {['07:00', '12:30', '18:00', '21:00'].map((timePreset) => {
-                        const isSelected = selectedTimeStr === timePreset;
-                        return (
-                          <button
-                            type="button"
-                            key={timePreset}
-                            onClick={() => setSelectedTimeStr(timePreset)}
-                            className={`px-3 py-2 rounded-xl text-xs font-medium border transition-all cursor-pointer text-center ${
-                              isSelected
-                                ? 'bg-[#1b233a] border-[#C7B9FF] text-[#C7B9FF] shadow-sm'
-                                : 'bg-[#111827] border-[#242c40] text-[#A8B1C8] hover:text-[#F3F3FA]'
-                            }`}
-                          >
-                            {timePreset} (Local)
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    <div className="flex items-center gap-2 pt-1">
-                      <span className="text-xs text-[#64708D]">Or custom:</span>
-                      <input
-                        type="time"
-                        value={selectedTimeStr}
-                        onChange={(e) => setSelectedTimeStr(e.target.value)}
-                        className="px-3 py-1.5 rounded-xl bg-[#111827] border border-[#242c40] text-xs text-[#F3F3FA] focus:outline-none focus:border-[#C7B9FF]/60"
-                      />
-                    </div>
-                  </div>
-
-                  {errors.scheduled && <p className="text-xs text-[#FFB9D2]">{errors.scheduled}</p>}
+              {/* Calendar Day Squares Grid (Horizontally scrollable with beautiful cards) */}
+              <div>
+                <span className="text-[11px] text-[#A8B1C8] block mb-2 font-medium">
+                  {language === 'es' ? '1. Elegir fecha' : '1. Choose Date'}
+                </span>
+                <div className="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar">
+                  {availableDays.map((dayItem) => {
+                    const isSelected = selectedDayStr === dayItem.dateStr;
+                    return (
+                      <button
+                        type="button"
+                        key={dayItem.dateStr}
+                        onClick={() => setCustomSelectedDay(dayItem.dateStr)}
+                        className={`flex flex-col items-center justify-center min-w-[62px] h-[72px] rounded-xl border transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-gradient-to-b from-[#1b233a] to-[#252f4c] border-[#C7B9FF] shadow-[0_0_12px_rgba(199,185,255,0.25)] text-[#F3F3FA]'
+                            : 'bg-[#111827] border-[#242c40] text-[#A8B1C8] hover:border-[#3e4a6b] hover:text-[#F3F3FA]'
+                        }`}
+                      >
+                        <span className="text-[10px] uppercase font-medium tracking-wider text-[#64708D]">
+                          {dayItem.isToday ? (language === 'es' ? 'Hoy' : 'Today') : dayItem.dayName}
+                        </span>
+                        <span className="text-base font-semibold my-0.5">{dayItem.dayNum}</span>
+                        <span className="text-[10px] text-[#C7B9FF]/90 font-light">{dayItem.monthName}</span>
+                      </button>
+                    );
+                  })}
                 </div>
-              )}
+              </div>
+
+              {/* Time Selector */}
+              <div>
+                <span className="text-[11px] text-[#A8B1C8] block mb-2 font-medium">
+                  {language === 'es' ? '2. Elegir hora (tu hora)' : '2. Choose Time (Your Time)'}
+                </span>
+
+                {/* Time presets */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+                  {[
+                    { time: '07:00', label: language === 'es' ? 'Mañana' : 'Morning' },
+                    { time: '12:30', label: language === 'es' ? 'Mediodía' : 'Midday' },
+                    { time: '18:00', label: language === 'es' ? 'Tarde' : 'Evening' },
+                    { time: '21:00', label: language === 'es' ? 'Noche' : 'Night' },
+                  ].map(({ time: timePreset, label }) => {
+                    const isSelected = !isCustomTimeActive && selectedTimeStr === timePreset;
+                    return (
+                      <button
+                        type="button"
+                        key={timePreset}
+                        onClick={() => {
+                          setSelectedTimeStr(timePreset);
+                          setIsCustomTimeActive(false);
+                        }}
+                        className={`px-3 py-2 rounded-xl text-xs font-medium border transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
+                          isSelected
+                            ? 'bg-gradient-to-b from-[#1b233a] to-[#252f4c] border-[#C7B9FF] text-[#F3F3FA] shadow-[0_0_12px_rgba(199,185,255,0.2)]'
+                            : 'bg-[#111827] border-[#242c40] text-[#A8B1C8] hover:text-[#F3F3FA] hover:border-[#3e4a6b]'
+                        }`}
+                      >
+                        <span className="font-semibold">{timePreset}</span>
+                        <span className="text-[10px] text-[#64708D] font-light">{label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Custom Time Selector */}
+                <div className="rounded-2xl bg-[#111827] border border-[#242c40] p-3.5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => setIsCustomTimeActive(!isCustomTimeActive)}
+                      className="flex items-center gap-2 text-xs font-medium text-[#C7B9FF] hover:text-[#F3F3FA] transition-colors cursor-pointer"
+                    >
+                      <Clock className="w-3.5 h-3.5 text-[#C7B9FF]" />
+                      <span>{language === 'es' ? 'Selector de hora personalizada' : 'Custom Time Picker'}</span>
+                    </button>
+
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#151B29] border border-[#C7B9FF]/30 text-xs font-mono text-[#F3F3FA] shadow-inner">
+                      <span className="text-[#C7B9FF] font-semibold">{currentHour}:{currentMinute}</span>
+                      <span className="text-[10px] text-[#64708D]">{language === 'es' ? 'Tu hora' : 'Your time'}</span>
+                    </div>
+                  </div>
+
+                  {/* Interactive Hour & Minute Sliders */}
+                  <div className="pt-2 border-t border-[#242c40]/60 grid grid-cols-2 gap-3 sm:gap-4">
+                    {/* Hour Column */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between text-[11px] text-[#64708D]">
+                        <span>{language === 'es' ? 'Hora' : 'Hour'}</span>
+                        <span className="font-mono text-[#A8B1C8]">{currentHour}:00</span>
+                      </div>
+                      <select
+                        value={currentHour}
+                        onChange={(e) => setCustomHour(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl bg-[#151B29] border border-[#242c40] focus:border-[#C7B9FF]/70 text-xs text-[#F3F3FA] focus:outline-none transition-colors cursor-pointer font-mono"
+                      >
+                        {Array.from({ length: 24 }).map((_, h) => {
+                          const val = h.toString().padStart(2, '0');
+                          return (
+                            <option key={val} value={val} className="bg-[#151B29] text-[#F3F3FA]">
+                              {val}:00 ({h === 0 ? (language === 'es' ? 'Medianoche' : 'Midnight') : h === 12 ? (language === 'es' ? 'Mediodía' : 'Noon') : h < 12 ? `${h} AM` : `${h - 12} PM`})
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+
+                    {/* Minute Column */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between text-[11px] text-[#64708D]">
+                        <span>{language === 'es' ? 'Minuto' : 'Minute'}</span>
+                        <span className="font-mono text-[#A8B1C8]">:{currentMinute}</span>
+                      </div>
+                      <select
+                        value={currentMinute}
+                        onChange={(e) => setCustomMinute(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl bg-[#151B29] border border-[#242c40] focus:border-[#C7B9FF]/70 text-xs text-[#F3F3FA] focus:outline-none transition-colors cursor-pointer font-mono"
+                      >
+                        {['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'].map((min) => (
+                          <option key={min} value={min} className="bg-[#151B29] text-[#F3F3FA]">
+                            :{min} min
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {errors.scheduled && <p className="text-xs text-[#FFB9D2]">{errors.scheduled}</p>}
             </div>
 
             {/* Consent and Guidelines Checkbox */}
@@ -484,7 +504,9 @@ export function CreateIntentionModal() {
                   className="mt-0.5 rounded border-[#242c40] text-[#C7B9FF] focus:ring-0 accent-[#C7B9FF]"
                 />
                 <span>
-                  I confirm I have permission/consent to share this intention respectfully, and understand that Coherence Hub is a supportive meditation space, not a medical or curative treatment.
+                  {language === 'es'
+                    ? 'Confirmo que tengo consentimiento para compartir esta intención con respeto, y comprendo que Meditation Hub es un espacio de meditación y presencia compasiva, no un tratamiento médico.'
+                    : 'I confirm I have permission/consent to share this intention respectfully, and understand that Meditation Hub is a supportive meditation room, not a medical or curative treatment.'}
                 </span>
               </label>
               {errors.consent && <p className="text-xs text-[#FFB9D2]">{errors.consent}</p>}
@@ -497,14 +519,14 @@ export function CreateIntentionModal() {
                 onClick={() => setIsCreateModalOpen(false)}
                 className="px-4 py-2 rounded-full text-xs font-medium text-[#A8B1C8] hover:text-[#F3F3FA] transition-colors cursor-pointer"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 type="submit"
                 className="flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-medium bg-[#1b233a] hover:bg-[#253052] text-[#C7B9FF] border border-[#C7B9FF]/40 hover:border-[#C7B9FF]/70 transition-all cursor-pointer shadow-sm active:scale-95"
               >
                 <Check className="w-3.5 h-3.5" />
-                <span>Publish Intention</span>
+                <span>{t('create.submitBtn')}</span>
               </button>
             </div>
           </form>
