@@ -1,0 +1,18 @@
+{
+  "name": "Meditation Hub",
+  "short_name": "MeditationHub",
+  "description": "A peaceful digital sanctuary where people share intentions and connect through quiet collective presence.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#080B15",
+  "theme_color": "#080B15",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
