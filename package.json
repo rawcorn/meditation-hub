@@ -1,5 +1,5 @@
 {
-  "name": "coherence-hub",
+  "name": "meditation-hub",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.119.0",
     "lucide-react": "^1.66.0",
     "next": "16.4.3",
     "react": "19.3.0",

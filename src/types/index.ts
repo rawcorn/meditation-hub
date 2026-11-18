@@ -1,10 +1,10 @@
 export type Category =
   | 'All'
-  | 'Physical Wellbeing'
-  | 'Mental & Emotional Wellbeing'
+  | 'Physical'
+  | 'Mental & Emotional'
   | 'Love & Relationships'
-  | 'Financial Wellbeing'
-  | 'Global Peace'
+  | 'Financial'
+  | 'World'
   | 'Other';
 
 export type IntentionCategory = Exclude<Category, 'All'>;
@@ -18,6 +18,8 @@ export interface User {
   avatarUrl?: string;
   joinedAt: string;
   isCurrentUser?: boolean;
+  isGuest?: boolean;
+  authProvider?: 'google' | 'email-otp' | 'guest';
 }
 
 export interface IntentionUpdate {
@@ -40,6 +42,14 @@ export interface SupportMessage {
   reported?: boolean;
 }
 
+export interface IntentionParticipant {
+  id: string;
+  name: string;
+  avatarUrl?: string;
+  joinedAt: string;
+  meditatedCount?: number;
+}
+
 export interface Intention {
   id: string;
   recipient: string;
@@ -54,6 +64,7 @@ export interface Intention {
   creatorName: string;
   createdAt: string;
   participantCount: number; // Authentic registered count
+  participants?: IntentionParticipant[];
   updates: IntentionUpdate[];
   messages: SupportMessage[];
   isSample?: boolean;
@@ -72,7 +83,7 @@ export interface MeditationSession {
   notes?: string;
 }
 
-export type NavigationTab = 'intentions' | 'discover' | 'meditate' | 'practice';
+export type NavigationTab = 'intentions' | 'discover' | 'calendar' | 'meditate' | 'practice';
 
 export interface ToastMessage {
   id: string;
